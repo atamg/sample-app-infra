@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sample-app-infra.fullname" . }}
+  labels:
+    {{- include "sample-app-infra.labels" . | nindent 4 }}
+  namespace: {{ .Values.namespace }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sample-app-infra.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sample-app-infra.selectorLabels" . | nindent 8 }}
+      namespace: {{ .Values.namespace }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag}}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.port }}
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.healthLive.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.healthLive.timeoutSeconds }}
+            periodSeconds: {{ .Values.healthLive.periodSeconds }}
+            successThreshold: {{ .Values.healthLive.successThreshold }}
+            failureThreshold: {{ .Values.healthLive.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.service.port }}
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.healthReady.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.healthReady.timeoutSeconds }}
+            periodSeconds: {{ .Values.healthReady.periodSeconds }}
+            successThreshold: {{ .Values.healthReady.successThreshold }}
+            failureThreshold: {{ .Values.healthReady.failureThreshold }}
+          env:          
+          - name: "name"
+            valueFrom:
+              secretKeyRef:
+                key:  name
+                name: {{ .Release.Name }}-auth
+          - name: "license"
+            valueFrom:
+              secretKeyRef:
+                key:  license
+                name: {{ .Release.Name }}-auth
